@@ -25,6 +25,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
+        shell: bash          # 👈 关键修正：强制使用 Bash
         run: |
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
@@ -32,6 +33,7 @@ jobs:
           pip install pyinstaller
 
       - name: Build with PyInstaller
+        shell: bash          # 👈 也加上，保持一致性
         run: pyinstaller --onefile --windowed --name myapp main.py
 
       - name: Upload artifacts
@@ -60,13 +62,11 @@ jobs:
       - name: Rename and prepare assets
         run: |
           # === 处理 macOS 产物 ===
-          # 先尝试找 .app 文件夹
           MAC_APP_DIR=$(find artifacts/MacApp -type d -name "*.app" 2>/dev/null | head -1)
           if [ -n "$MAC_APP_DIR" ]; then
             cp -r "$MAC_APP_DIR" myapp-mac.app
             echo "✅ 找到 macOS .app: $MAC_APP_DIR"
           else
-            # 如果找不到 .app，尝试找可执行文件
             MAC_FILE=$(find artifacts/MacApp -type f -executable 2>/dev/null | head -1)
             if [ -n "$MAC_FILE" ]; then
               cp "$MAC_FILE" myapp-mac.app
