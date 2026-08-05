@@ -46,6 +46,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: contains(github.event.head_commit.message, '[release]')
+    permissions:
+      contents: write          # 👈 关键：授予创建 Release 的权限
 
     steps:
       - name: Download all artifacts
