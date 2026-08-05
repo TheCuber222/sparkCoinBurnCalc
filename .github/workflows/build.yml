@@ -25,7 +25,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install dependencies
-        shell: bash          # 👈 关键修正：强制使用 Bash
+        shell: bash
         run: |
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
@@ -33,7 +33,7 @@ jobs:
           pip install pyinstaller
 
       - name: Build with PyInstaller
-        shell: bash          # 👈 也加上，保持一致性
+        shell: bash
         run: pyinstaller --onefile --windowed --name myapp main.py
 
       - name: Upload artifacts
@@ -65,12 +65,14 @@ jobs:
           MAC_APP_DIR=$(find artifacts/MacApp -type d -name "*.app" 2>/dev/null | head -1)
           if [ -n "$MAC_APP_DIR" ]; then
             cp -r "$MAC_APP_DIR" myapp-mac.app
-            echo "✅ 找到 macOS .app: $MAC_APP_DIR"
+            zip -r myapp-mac.zip myapp-mac.app
+            echo "✅ 打包 macOS .app"
           else
             MAC_FILE=$(find artifacts/MacApp -type f -executable 2>/dev/null | head -1)
             if [ -n "$MAC_FILE" ]; then
               cp "$MAC_FILE" myapp-mac.app
-              echo "✅ 找到 macOS 可执行文件: $MAC_FILE"
+              zip -r myapp-mac.zip myapp-mac.app
+              echo "✅ 打包 macOS 可执行文件"
             else
               echo "❌ 未找到 macOS 产物！"
               echo "artifacts/MacApp 目录内容："
@@ -84,7 +86,7 @@ jobs:
           WIN_EXE=$(find artifacts/WinApp -type f -name "*.exe" 2>/dev/null | head -1)
           if [ -n "$WIN_EXE" ]; then
             mv "$WIN_EXE" myapp-win.exe
-            echo "✅ 找到 Windows exe: $WIN_EXE"
+            echo "✅ 找到 Windows exe"
           else
             echo "❌ 未找到 Windows 产物！"
             echo "artifacts/WinApp 目录内容："
@@ -96,6 +98,8 @@ jobs:
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: "release-${{ github.sha }}"
+          name: "Release ${{ github.sha }}"
           files: |
-            myapp-mac.app
+            myapp-mac.zip
             myapp-win.exe
