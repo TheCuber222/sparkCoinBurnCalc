@@ -47,7 +47,17 @@ jobs:
           path: artifacts
       - name: Rename and prepare assets
         run: |
-          mv artifacts/MacApp/dist/myapp myapp-mac.app
+          # macOS: 适配 .app 文件夹或普通文件
+          if [ -d "artifacts/MacApp/dist/myapp.app" ]; then
+            cp -r artifacts/MacApp/dist/myapp.app myapp-mac.app
+          elif [ -f "artifacts/MacApp/dist/myapp" ]; then
+            cp artifacts/MacApp/dist/myapp myapp-mac.app
+          else
+            echo "未知的 macOS 产物结构，请检查："
+            ls -la artifacts/MacApp/dist/
+            exit 1
+          fi
+          # Windows: 移动 .exe
           mv artifacts/WinApp/dist/myapp.exe myapp-win.exe
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
