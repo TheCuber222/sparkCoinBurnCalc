@@ -14,22 +14,26 @@ jobs:
         include:
           - os: macos-latest
             artifact_name: MacApp
-            asset_name: myapp-mac
           - os: windows-latest
             artifact_name: WinApp
-            asset_name: myapp-win.exe
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
           pip install pyinstaller
+
       - name: Build with PyInstaller
         run: pyinstaller --onefile --windowed --name myapp main.py
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -40,25 +44,55 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: contains(github.event.head_commit.message, '[release]')
+
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+
+      - name: Debug - List artifact structure
+        run: |
+          echo "=== 完整 artifacts 目录结构 ==="
+          find artifacts -type f
+          echo "================================"
+
       - name: Rename and prepare assets
         run: |
-          # macOS: 适配 .app 文件夹或普通文件
-          if [ -d "artifacts/MacApp/dist/myapp.app" ]; then
-            cp -r artifacts/MacApp/dist/myapp.app myapp-mac.app
-          elif [ -f "artifacts/MacApp/dist/myapp" ]; then
-            cp artifacts/MacApp/dist/myapp myapp-mac.app
+          # === 处理 macOS 产物 ===
+          # 先尝试找 .app 文件夹
+          MAC_APP_DIR=$(find artifacts/MacApp -type d -name "*.app" 2>/dev/null | head -1)
+          if [ -n "$MAC_APP_DIR" ]; then
+            cp -r "$MAC_APP_DIR" myapp-mac.app
+            echo "✅ 找到 macOS .app: $MAC_APP_DIR"
           else
-            echo "未知的 macOS 产物结构，请检查："
-            ls -la artifacts/MacApp/dist/
+            # 如果找不到 .app，尝试找可执行文件
+            MAC_FILE=$(find artifacts/MacApp -type f -executable 2>/dev/null | head -1)
+            if [ -n "$MAC_FILE" ]; then
+              cp "$MAC_FILE" myapp-mac.app
+              echo "✅ 找到 macOS 可执行文件: $MAC_FILE"
+            else
+              echo "❌ 未找到 macOS 产物！"
+              echo "artifacts/MacApp 目录内容："
+              ls -la artifacts/MacApp/ || true
+              find artifacts/MacApp -type f || true
+              exit 1
+            fi
+          fi
+
+          # === 处理 Windows 产物 ===
+          WIN_EXE=$(find artifacts/WinApp -type f -name "*.exe" 2>/dev/null | head -1)
+          if [ -n "$WIN_EXE" ]; then
+            mv "$WIN_EXE" myapp-win.exe
+            echo "✅ 找到 Windows exe: $WIN_EXE"
+          else
+            echo "❌ 未找到 Windows 产物！"
+            echo "artifacts/WinApp 目录内容："
+            ls -la artifacts/WinApp/ || true
+            find artifacts/WinApp -type f || true
             exit 1
           fi
-          # Windows: 移动 .exe
-          mv artifacts/WinApp/dist/myapp.exe myapp-win.exe
+
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
