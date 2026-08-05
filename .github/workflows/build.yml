@@ -1,0 +1,57 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            artifact_name: MacApp
+            asset_name: myapp-mac
+          - os: windows-latest
+            artifact_name: WinApp
+            asset_name: myapp-win.exe
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Build with PyInstaller
+        run: pyinstaller --onefile --windowed --name myapp main.py
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.message, '[release]')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Rename and prepare assets
+        run: |
+          mv artifacts/MacApp/dist/myapp myapp-mac.app
+          mv artifacts/WinApp/dist/myapp.exe myapp-win.exe
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            myapp-mac.app
+            myapp-win.exe
